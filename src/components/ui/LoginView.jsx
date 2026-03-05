@@ -58,55 +58,48 @@ export default function LoginView({ onLogin, isDarkMode, onToggleTheme }) {
 
   const API_URL = import.meta.env.VITE_API_URL;
   const theme = getTheme(isDarkMode);
+// components/ui/LoginView.jsx
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
 
-    const endpoint = isLogin ? '/auth/login' : '/auth/signup';
-
-    let payload;
+  try {
     if (isLogin) {
-      payload = {
-        email: formData.email,
-        password: formData.password,
-      };
-    } else {
-      payload = {
-        restaurantName: formData.restaurantId,
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        // role is intentionally NOT sent
-        // backend always assigns admin
-      };
-    }
-
-    try {
-      const res = await fetch(`${API_URL}${endpoint}`, {
+      // LOGIN
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ email: formData.email, password: formData.password }),
       });
-
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Request failed');
-
-      if (isLogin) {
-        onLogin(data.user, data.token);
-      } else {
-        alert('Account created successfully! Please login.');
-        setIsLogin(true);
-        setFormData((prev) => ({ ...prev, password: '' }));
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      if (!res.ok) throw new Error(data.detail || 'Login failed');
+      onLogin(data.user, data.access_token); // FastAPI returns access_token
+    } else {
+     
+      const res = await fetch(`${API_URL}/auth/restaurant-signup?restaurant_name=${encodeURIComponent(formData.restaurantId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          role: "admin",      // Hardcoded for signup
+          restaurant_id: 0    // Dummy ID, backend ignores this on signup
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Signup failed');
+      alert('Success! Logging you in...');
+      onLogin(data.user, data.access_token);
     }
-  };
-
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div
       className={`min-h-screen flex items-center justify-center p-4 antialiased ${theme.bg.main} ${theme.text.main}`}

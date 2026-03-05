@@ -3,6 +3,7 @@ import { X, CheckCircle, Loader } from 'lucide-react';
 import { getTheme, COMMON_STYLES, FONTS } from './theme';
 
 export default function CheckoutModal({ 
+  
   isOpen, 
   onClose, 
   onConfirm, 
@@ -15,6 +16,7 @@ export default function CheckoutModal({
   backendUpiData,
   onPaymentComplete // ✅ Receive the new success handler
 }) {
+  console.log("QR DATA:", backendUpiData);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [isProcessing, setIsProcessing] = useState(false);
   const theme = getTheme(isDarkMode);
@@ -28,14 +30,20 @@ export default function CheckoutModal({
   
   if (!isOpen) return null;
 
-  const handleConfirm = async () => { 
-    setIsProcessing(true); 
-    await onConfirm({ paymentMethod }); 
-    setIsProcessing(false); 
+  const handleConfirm = async () => {
+    if (paymentMethod === "upi") {
+      // For UPI we do NOT finalize order yet
+      await onConfirm({ paymentMethod: "upi", initiate: true });
+      return;
+    }
+  
+    setIsProcessing(true);
+    await onConfirm({ paymentMethod });
+    setIsProcessing(false);
   };
 
   // ─── UPI QR VIEW ───
-  if (backendUpiData) {
+  if (backendUpiData?.qr) {
     return (
       <div className={`fixed inset-0 z-50 flex items-center justify-center ${theme.bg.overlay} p-4`} style={{ fontFamily: FONTS.sans }}>
         <div className={`w-full max-w-sm rounded-2xl relative p-8 flex flex-col items-center text-center ${COMMON_STYLES.modal(isDarkMode)}`}>
@@ -55,11 +63,37 @@ export default function CheckoutModal({
           
           {/* ✅ FIX: Call onPaymentComplete instead of onClose */}
           <button 
-            onClick={onPaymentComplete} 
+            onClick={()=>onPaymentComplete("upi")} 
             className={`w-full py-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${theme.button.primary}`}
           >
             <CheckCircle size={20} /> Payment Done
           </button>
+          <div className="grid grid-cols-3 gap-3">
+          {paymentMethod === "card" && (
+  <div className="mt-4 space-y-3">
+    <input
+      placeholder="Card Number"
+      className={`w-full ${COMMON_STYLES.input(isDarkMode)}`}
+    />
+
+    <div className="flex gap-3">
+      <input
+        placeholder="MM/YY"
+        className={`flex-1 ${COMMON_STYLES.input(isDarkMode)}`}
+      />
+      <input
+        placeholder="CVV"
+        className={`flex-1 ${COMMON_STYLES.input(isDarkMode)}`}
+      />
+    </div>
+
+    <input
+      placeholder="Cardholder Name"
+      className={`w-full ${COMMON_STYLES.input(isDarkMode)}`}
+    />
+  </div>
+)}
+          </div>
         </div>
       </div>
     );

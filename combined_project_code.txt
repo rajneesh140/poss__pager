@@ -1,0 +1,933 @@
+
+================================================================================
+FILE: pos_db.sql
+================================================================================
+
+-- MySQL dump 10.13  Distrib 9.5.0, for macos26.2 (arm64)
+--
+-- Host: localhost    Database: pos_db
+-- ------------------------------------------------------
+-- Server version	9.5.0
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+SET @MYSQLDUMP_TEMP_LOG_BIN = @@SESSION.SQL_LOG_BIN;
+SET @@SESSION.SQL_LOG_BIN= 0;
+
+--
+-- GTID state at the beginning of the backup 
+--
+
+SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '2532e646-f066-11f0-a929-261f2970b84a:1-94';
+
+--
+-- Table structure for table `app_settings`
+--
+
+DROP TABLE IF EXISTS `app_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `app_settings` (
+  `id` int NOT NULL DEFAULT '1',
+  `upi_id` varchar(255) DEFAULT NULL,
+  `payee_name` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `app_settings`
+--
+
+LOCK TABLES `app_settings` WRITE;
+/*!40000 ALTER TABLE `app_settings` DISABLE KEYS */;
+INSERT INTO `app_settings` VALUES (1,'aakash@okaxis','aakash');
+/*!40000 ALTER TABLE `app_settings` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `order_items`
+--
+
+DROP TABLE IF EXISTS `order_items`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `order_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `order_id` int NOT NULL,
+  `product_id` int NOT NULL,
+  `product_name` varchar(255) DEFAULT NULL,
+  `price` decimal(10,2) DEFAULT NULL,
+  `quantity` int DEFAULT NULL,
+  `subtotal` decimal(10,2) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `order_id` (`order_id`),
+  CONSTRAINT `order_items_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `order_items`
+--
+
+LOCK TABLES `order_items` WRITE;
+/*!40000 ALTER TABLE `order_items` DISABLE KEYS */;
+INSERT INTO `order_items` VALUES (1,1,5,'Paneer Tikka',180.00,2,360.00),(2,1,8,'Lassi',80.00,1,80.00),(3,2,5,'Paneer Tikka',180.00,2,360.00),(4,2,8,'Lassi',80.00,1,80.00),(5,3,5,'Paneer Tikka',180.00,2,360.00),(6,3,8,'Lassi',80.00,1,80.00),(7,4,5,'Paneer Tikka',180.00,2,360.00),(8,4,8,'Lassi',80.00,1,80.00),(9,10,6,'Spring Rolls',120.00,1,120.00),(10,11,5,'Paneer Tikka',180.00,1,180.00),(11,11,20,'momo',40.00,1,40.00),(12,11,6,'Spring Rolls',120.00,1,120.00),(13,11,9,'French Fries',80.00,1,80.00),(14,11,10,'Chicken Wings',220.00,1,220.00),(15,11,7,'Butter Chicken',280.00,1,280.00),(16,11,14,'Roti',20.00,1,20.00),(17,11,15,'Chicken Biryani',260.00,1,260.00),(18,11,11,'Dal Makhani',180.00,1,180.00),(19,11,12,'Paneer Butter Masala',240.00,1,240.00),(20,11,13,'Naan',40.00,1,40.00),(21,11,8,'Lassi',80.00,1,80.00),(22,11,16,'Cold Coffee',120.00,1,120.00),(23,11,17,'Lemon Soda',60.00,1,60.00),(24,11,18,'Masala Chai',30.00,1,30.00),(25,11,19,'momo',40.00,1,40.00),(26,12,10,'Chicken Wings',220.00,1,220.00),(27,12,9,'French Fries',80.00,1,80.00),(28,13,9,'French Fries',80.00,1,80.00),(29,13,6,'Spring Rolls',120.00,1,120.00),(30,14,9,'French Fries',80.00,2,160.00),(31,14,6,'Spring Rolls',120.00,1,120.00),(32,14,10,'Chicken Wings',220.00,1,220.00);
+/*!40000 ALTER TABLE `order_items` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `orders`
+--
+
+DROP TABLE IF EXISTS `orders`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `orders` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `total_amount` decimal(10,2) NOT NULL,
+  `payment_method` enum('upi','cash','card') NOT NULL,
+  `payment_status` enum('pending','paid') DEFAULT 'pending',
+  `status` enum('created','active','ready','completed') DEFAULT 'created',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `token` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `orders`
+--
+
+LOCK TABLES `orders` WRITE;
+/*!40000 ALTER TABLE `orders` DISABLE KEYS */;
+INSERT INTO `orders` VALUES (1,440.00,'upi','pending','created','2026-01-23 08:45:08',NULL),(2,440.00,'upi','pending','created','2026-01-23 11:48:17',NULL),(3,440.00,'upi','pending','created','2026-01-23 11:53:47',NULL),(4,440.00,'upi','pending','created','2026-01-23 11:57:59',NULL),(5,300.00,'cash','pending','created','2026-01-26 04:08:04',NULL),(6,220.00,'cash','pending','created','2026-01-26 04:50:42',NULL),(7,120.00,'cash','pending','created','2026-01-26 05:01:05',NULL),(8,120.00,'cash','pending','created','2026-01-26 05:01:59',NULL),(9,120.00,'cash','pending','created','2026-01-26 05:08:35',NULL),(10,120.00,'cash','pending','created','2026-01-26 05:10:33',NULL),(11,1990.00,'cash','pending','created','2026-01-26 05:14:13',NULL),(12,300.00,'upi','pending','created','2026-01-26 17:56:20',NULL),(13,210.00,'upi','pending','created','2026-01-27 18:08:19','1'),(14,525.00,'upi','pending','created','2026-01-27 18:09:06','1');
+/*!40000 ALTER TABLE `orders` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `products`
+--
+
+DROP TABLE IF EXISTS `products`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `products` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `price` decimal(10,2) NOT NULL,
+  `stock` int NOT NULL,
+  `category` varchar(50) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `products`
+--
+
+LOCK TABLES `products` WRITE;
+/*!40000 ALTER TABLE `products` DISABLE KEYS */;
+INSERT INTO `products` VALUES (5,'Paneer Tikka',180.00,50,'Starters'),(6,'Spring Rolls',120.00,40,'Starters'),(7,'Butter Chicken',280.00,30,'Main Course'),(8,'Lassi',80.00,100,'Beverages'),(9,'French Fries',80.00,60,'Starters'),(10,'Chicken Wings',220.00,25,'Starters'),(11,'Dal Makhani',180.00,40,'Main Course'),(12,'Paneer Butter Masala',240.00,35,'Main Course'),(13,'Naan',40.00,200,'Main Course'),(14,'Roti',20.00,300,'Main Course'),(15,'Chicken Biryani',260.00,20,'Main Course'),(16,'Cold Coffee',120.00,50,'Beverages'),(17,'Lemon Soda',60.00,80,'Beverages'),(18,'Masala Chai',30.00,150,'Beverages'),(20,'momo',40.00,100,'Starters');
+/*!40000 ALTER TABLE `products` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `store_settings`
+--
+
+DROP TABLE IF EXISTS `store_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `store_settings` (
+  `id` int NOT NULL,
+  `upi_id` varchar(100) DEFAULT NULL,
+  `payee_name` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `store_settings`
+--
+
+LOCK TABLES `store_settings` WRITE;
+/*!40000 ALTER TABLE `store_settings` DISABLE KEYS */;
+INSERT INTO `store_settings` VALUES (1,'test@upi','Test Store');
+/*!40000 ALTER TABLE `store_settings` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `users`
+--
+
+DROP TABLE IF EXISTS `users`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `users` (
+  `username` varchar(100) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role` enum('admin','manager','cashier') DEFAULT 'cashier',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `users`
+--
+
+LOCK TABLES `users` WRITE;
+/*!40000 ALTER TABLE `users` DISABLE KEYS */;
+INSERT INTO `users` VALUES ('aakash','aakash@gmail.com','$2b$10$cOXN9yq583InI1pvgy.z2enUZ8sNOCISl25LNwRAynVUurwtydOem','admin','2026-01-25 17:23:49'),('aakash','aakash123@gmail.com','$2b$10$JYzM7.YbYzTsJLbgJ2sULet/lPYo3m/yKgWDKYPDcA6m2xo9mHfka','cashier','2026-01-20 12:35:56'),('abcd','abcd123@gmail.com','$2b$10$UrDZqKA6P0Ev5kSsX8e.S.xDLnvsbiOOpZB.hwoL8cI5USG2jhFhy','admin','2026-01-21 10:26:43'),('aditya','adit123@gmail.com','$2b$10$hkxVXSUzEnhVA0JjQZngre2QazTcQE1bykE81UhyZV423ZMGm2SQ.','admin','2026-01-21 09:07:29'),('aditya','aditi123@gmail.com','$2b$10$rnAIgY0IugnC3TYIheUVRuZa0rmi2wjtU0.B.xpPn5qsVtDcNbXTO','admin','2026-01-21 09:07:49'),('aditya','aditya123@gmail.com','$2b$10$5cJ5n7DTft1Q5E9EED.lk.65P7xPEknELYHcCwqVOVenstmU6wL82','admin','2026-01-21 09:07:08'),('admin456','admin456@gmail.com','$2b$10$QRpN2s8WeafMKO0c4p85XeZYQ3O8KrRxajeF5GZ85GkXBXmOJblHC','admin','2026-01-26 07:15:37'),('benny','benny@gmail.com','$2b$10$4DnBiaVnzRUVzJXHSCN7De8qXyaN5PLIxBkNdpW/P2oPTN7K2EwPa','cashier','2026-01-27 17:58:50'),('fgh','fgh567@gmail.com','$2b$10$G7m1QfVjxIVvjS6c.ieVR.JhWDimG3uqhq/qgYaxmLqMMp1XsxaHW','admin','2026-01-22 09:49:15'),('riya','hslr@gmail.com','$2b$10$7HzxfobAa4aTg.CJ4Okin.9q8ywFGTjAp7cuoXz1UStj1ymeR3YAq','cashier','2026-01-26 08:12:32'),('john ','joh321@gmail.com','$2b$10$EKbHPTMFKgaIRLtSoCdxxe2raLBeqq0/oszayhlwu1DsZUKcFk5wW','manager','2026-01-26 07:09:32'),('john','john321@gmail.com','$2b$10$W6oPbURs0lR/fGx/jTPlQ.25qSjZFIvV/dsNjzEKqxbHCv9I1yNh.','admin','2026-01-26 05:16:13'),('Test Manager','manager@test.com','$2b$10$j1Meqqs4l5Wm2J/Ackcpfu3d3bnqqsiYx/218TSOTdzB2wAN0Suom','manager','2026-01-26 07:08:47'),('mridul','mridul@test.com','$2b$10$hlUKaz.91WLKEYobkL8AvOXro6fh2AdzDwYqa43udleDO5o6CvpHi','admin','2026-01-19 10:51:28'),('mridul','mridulbhardwaj13@gmail.com','$2b$10$mSnQyhjePCXEVLqz4wTEjuvNmd1Pz01dzVjl5T5jFtZqhzrPURqaK','cashier','2026-01-27 09:16:07'),('mridul bhardwaj','mridulbhardwaj13@gmal.com','$2b$10$2fATMUa4H5/BI4SLxwUz7.sHbj.zZI0eL3mSfGf42EvX/OTAmalle','cashier','2026-01-19 11:58:29'),('raj','raj123@gmail.com','$2b$10$DilM2DI0utYp9zKpor.o0uTR5b27B1obcxzX68NRnL6b4xhPPLSqW','cashier','2026-01-26 03:56:49'),('riya','riya123@gmail.com','$2b$10$eCNwJpVGIyekcwis853x7e63sStvFdK30PBBAAfiZ/v2Uv0xtYLZO','admin','2026-01-22 10:14:37'),('saksham','saksh123@gmail.com','$2b$10$pj8NDVbu.TDLXXWTutf20.y3OkOPWyB/OCrNycy23eNNB34ByT3nu','admin','2026-01-21 10:25:54'),('saksham','sakshamchawla@gmail.com','$2b$10$bx86u0db8eZPSWhnPmX7n.VhuiEdsM31xth0rOCAS4qrd7uXx.lpa','cashier','2026-01-21 09:44:56'),('xyz','xyz321@gmail.com','$2b$10$0RLd2wsM0UYIqvcSxidx5uTAV8dgXPoU3p4W7l6E91V/9KGmE/SFu','cashier','2026-01-22 08:37:17'),('yash','yash69@gmail.com','$2b$10$FJdPk1hJxbLrPyW7CdlvIOcwes89Pbq6QkFmLRqTb6Z8blk7A.16m','cashier','2026-01-26 17:56:02');
+/*!40000 ALTER TABLE `users` ENABLE KEYS */;
+UNLOCK TABLES;
+SET @@SESSION.SQL_LOG_BIN = @MYSQLDUMP_TEMP_LOG_BIN;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2026-01-28  8:29:44
+
+
+================================================================================
+FILE: app/main.py
+================================================================================
+
+import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.routers import auth, products, orders, settings_router
+from app.core.config import settings
+
+app = FastAPI(title="POS Backend - FastAPI")
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+# Same CORS policy as Express app.use(cors())
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[ "http://localhost:5173",
+    "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register Routers
+app.include_router(auth.router, prefix="/auth")
+app.include_router(products.router, prefix="/products")
+app.include_router(orders.router, prefix="/orders")
+app.include_router(settings_router.router, prefix="/settings")
+
+@app.get("/")
+async def root():
+    # Preserving exact health check response
+    return {"message": "POS Backend Online"}
+
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.PORT, reload=True)
+
+================================================================================
+FILE: app/routers/auth.py
+================================================================================
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import text  # Required for raw SQL restaurant insertion
+from typing import List
+
+from app.db.session import get_db
+from app.models.pos_models import User
+from app.schemas.pos_schemas import UserCreate, UserLogin, Token, UserBase
+from app.core.security import get_password_hash, verify_password, create_access_token
+from app.core.dependencies import get_current_user
+
+router = APIRouter(tags=["Authentication"])
+
+# --- 1. PUBLIC: RESTAURANT ONBOARDING ---
+@router.post("/restaurant-signup", response_model=Token)
+async def restaurant_signup(
+    user_in: UserCreate, 
+    restaurant_name: str, 
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Creates a new Restaurant and its primary Admin user in one transaction.
+    This is the entry point for a new business owner.
+    """
+    # Check if email exists
+    existing_user = await db.execute(select(User).where(User.email == user_in.email))
+    if existing_user.scalars().first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    try:
+        # Create Restaurant Entry
+        res_query = text("INSERT INTO restaurants (name, email) VALUES (:name, :email)")
+        await db.execute(res_query, {"name": restaurant_name, "email": user_in.email})
+        
+        # Get the new ID
+        id_query = text("SELECT LAST_INSERT_ID()")
+        res_id_result = await db.execute(id_query)
+        new_restaurant_id = res_id_result.scalar()
+
+        # Create Admin User
+        hashed_pw = get_password_hash(user_in.password)
+        new_admin = User(
+            username=user_in.username,
+            email=user_in.email,
+            password=hashed_pw,
+            role="admin",  # Force first user as admin
+            restaurant_id=new_restaurant_id
+        )
+        
+        db.add(new_admin)
+        await db.commit()
+        await db.refresh(new_admin)
+
+        # Generate Access Token
+        access_token = create_access_token(subject=new_admin.email)
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": new_admin
+        }
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Signup failed: {str(e)}")
+
+
+# --- 2. PUBLIC: LOGIN ---
+@router.post("/login", response_model=Token)
+async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
+    """
+    Standard login for all roles (Admin, Manager, Cashier).
+    """
+    result = await db.execute(select(User).where(User.email == user_in.email))
+    user = result.scalars().first()
+    
+    if not user or not verify_password(user_in.password, user.password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    access_token = create_access_token(subject=user.email)
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user
+    }
+
+
+# --- 3. PROTECTED: ADMIN ONLY STAFF CREATION ---
+@router.post("/create-user", response_model=UserBase)
+async def admin_create_user(
+    user_in: UserCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Allows an Admin to create Managers or Cashiers for their own restaurant.
+    """
+    # RBAC Security Check
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Forbidden: Only admins can create staff accounts"
+        )
+
+    # Check if email is taken
+    result = await db.execute(select(User).where(User.email == user_in.email))
+    if result.scalars().first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed_pw = get_password_hash(user_in.password)
+    
+    # Enforce multi-tenancy: New user must share the Admin's restaurant_id
+    new_user = User(
+        username=user_in.username,
+        email=user_in.email,
+        password=hashed_pw,
+        role=user_in.role,
+        restaurant_id=current_user.restaurant_id 
+    )
+    
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return new_user
+
+================================================================================
+FILE: app/routers/settings_router.py
+================================================================================
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from app.db.session import get_db
+from app.models.pos_models import StoreSetting
+from app.schemas.pos_schemas import SettingUpdate
+from app.core.dependencies import get_current_user
+
+router = APIRouter(tags=["Settings"])
+
+@router.get("/")
+async def get_settings(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+    result = await db.execute(select(StoreSetting))
+    settings_list = result.scalars().all()
+    return {s.key_name: s.value for s in settings_list}
+
+@router.post("/")
+async def update_setting(
+    payload: SettingUpdate, 
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    result = await db.execute(select(StoreSetting).where(StoreSetting.key_name == payload.key_name))
+    setting = result.scalars().first()
+    
+    if setting:
+        setting.value = payload.value
+    else:
+        setting = StoreSetting(key_name=payload.key_name, value=payload.value)
+        db.add(setting)
+    
+    await db.commit()
+    return {"message": "Setting updated successfully"}
+
+================================================================================
+FILE: app/routers/products.py
+================================================================================
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from typing import List
+from app.db.session import get_db
+from app.models.pos_models import Product, User
+from app.schemas.pos_schemas import ProductCreate, ProductResponse
+from app.core.dependencies import get_current_user
+
+router = APIRouter(tags=["Products"])
+
+@router.get("/", response_model=List[ProductResponse])
+async def get_products(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    # Everyone can view their own restaurant's products
+    result = await db.execute(select(Product).where(Product.restaurant_id == current_user.restaurant_id))
+    return result.scalars().all()
+
+@router.post("/", response_model=ProductResponse)
+async def create_product(
+    product_in: ProductCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # RBAC: Only admin creates products
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can add products")
+        
+    new_product = Product(
+        **product_in.dict(), 
+        restaurant_id=current_user.restaurant_id # Force current restaurant
+    )
+    db.add(new_product)
+    await db.commit()
+    await db.refresh(new_product)
+    return new_product
+
+@router.put("/{product_id}", response_model=ProductResponse)
+async def update_product(
+    product_id: int, 
+    product_in: ProductCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # RBAC: Only admin updates
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can update products")
+
+    # Ensure product belongs to this restaurant
+    result = await db.execute(select(Product).where(
+        Product.id == product_id, 
+        Product.restaurant_id == current_user.restaurant_id
+    ))
+    product = result.scalars().first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    for var, value in product_in.dict().items():
+        setattr(product, var, value)
+    
+    await db.commit()
+    await db.refresh(product)
+    return product
+
+@router.delete("/{product_id}")
+async def delete_product(
+    product_id: int, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # RBAC: Only admin deletes
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can delete products")
+
+    result = await db.execute(select(Product).where(
+        Product.id == product_id, 
+        Product.restaurant_id == current_user.restaurant_id
+    ))
+    product = result.scalars().first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    await db.delete(product)
+    await db.commit()
+    return {"message": "Product deleted successfully"}
+
+================================================================================
+FILE: app/routers/orders.py
+================================================================================
+
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from typing import List
+from app.db.session import get_db
+from app.models.pos_models import Order, OrderItem, Product, User
+from app.schemas.pos_schemas import OrderCreate, OrderResponse
+from app.core.dependencies import get_current_user
+from app.services.serial_service import serial_bus
+import uuid
+
+router = APIRouter(tags=["Orders"])
+
+@router.get("/", response_model=List[OrderResponse])
+async def get_orders(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    # MULTI-TENANCY: Filter by current_user.restaurant_id
+    result = await db.execute(
+        select(Order)
+        .where(Order.restaurant_id == current_user.restaurant_id)
+        .order_by(Order.created_at.desc())
+    )
+    return result.scalars().all()
+
+@router.post("/", response_model=OrderResponse)
+async def create_order(
+    order_in: OrderCreate, 
+    background_tasks: BackgroundTasks, # Added for non-blocking Hardware trigger
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    short_token = str(uuid.uuid4())[:8].upper()
+
+    try:
+        new_order = Order(
+            total_amount=order_in.total_amount,
+            payment_method=order_in.payment_method,
+            token=short_token,
+            status="active" if order_in.payment_method != "upi" else "created",
+            restaurant_id=current_user.restaurant_id # LOCK to current restaurant
+        )
+        db.add(new_order)
+        await db.flush() 
+
+        for item in order_in.items:
+            # Check stock AND ensure product belongs to this restaurant
+            prod_result = await db.execute(
+                select(Product).where(
+                    Product.id == item.product_id, 
+                    Product.restaurant_id == current_user.restaurant_id
+                )
+            )
+            product = prod_result.scalars().first()
+            
+            if not product or product.stock < item.quantity:
+                raise HTTPException(status_code=400, detail=f"Insufficient stock or invalid item")
+
+            product.stock -= item.quantity
+            
+            oi = OrderItem(
+                order_id=new_order.id,
+                product_id=item.product_id,
+                quantity=item.quantity,
+                subtotal=item.subtotal
+            )
+            db.add(oi)
+
+        await db.commit()
+        await db.refresh(new_order)
+
+        # ASYNC TRIGGER: Don't wait for hardware to respond
+        background_tasks.add_task(serial_bus.send_token, short_token)
+
+        return new_order
+
+    except Exception as e:
+        await db.rollback()
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=str(e))
+
+================================================================================
+FILE: app/core/config.py
+================================================================================
+
+from pydantic_settings import BaseSettings
+from typing import Optional
+
+class Settings(BaseSettings):
+    # Database Config
+    DB_HOST: str
+    DB_PORT: int = 3306
+    DB_USER: str
+    DB_PASSWORD: str
+    DB_NAME: str
+
+    # Security
+    JWT_SECRET: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours to match standard Node JWTs
+
+    # Server Config
+    PORT: int = 3000
+    
+    # Hardware Config
+    PREFERRED_PORT: str = "COM3"
+    BAUD_RATE: int = 115200
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = 'utf-8'
+        case_sensitive = False
+        extra = "ignore"
+
+settings = Settings()
+
+================================================================================
+FILE: app/core/security.py
+================================================================================
+
+import bcrypt
+from datetime import datetime, timedelta
+from typing import Any, Union
+from jose import jwt
+from app.core.config import settings
+
+# --- MODERN BCRYPT HANDLING ---
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    # Convert strings to bytes
+    password_bytes = plain_password.encode('utf-8')
+    hashed_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
+
+def get_password_hash(password: str) -> str:
+    # Generate salt and hash
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed_password.decode('utf-8')
+
+# --- JWT HANDLING ---
+def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    to_encode = {"exp": expire, "sub": str(subject)}
+    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.ALGORITHM)
+    return encoded_jwt
+
+================================================================================
+FILE: app/core/dependencies.py
+================================================================================
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from app.core.config import settings
+from app.db.session import get_db
+from app.models.pos_models import User
+
+# OAuth2 scheme looking for token in 'Authorization: Bearer <token>'
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+async def get_current_user(
+    db: AsyncSession = Depends(get_db), 
+    token: str = Depends(oauth2_scheme)
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.ALGORITHM])
+        user_email: str = payload.get("sub")
+        if user_email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+        
+    result = await db.execute(select(User).where(User.email == user_email))
+    user = result.scalars().first()
+    
+    if user is None:
+        raise credentials_exception
+    return user
+
+================================================================================
+FILE: app/models/pos_models.py
+================================================================================
+
+from sqlalchemy import Column, Integer, String, Numeric, Enum, ForeignKey, TIMESTAMP, func, Text
+from sqlalchemy.orm import relationship
+from app.db.base import Base
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(100), nullable=False)
+    email = Column(String(150), unique=True, nullable=False)
+    password = Column(String(255), nullable=False)
+    role = Column(Enum('admin', 'manager', 'cashier'), default='cashier')
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    # Fixed: restaurant_id is necessary for Multi-tenancy logic
+    restaurant_id = Column(Integer, ForeignKey("restaurants.id"), nullable=True)
+
+class Product(Base):
+    __tablename__ = "products"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    price = Column(Numeric(10, 2), nullable=False)
+    stock = Column(Integer, nullable=False)
+    category = Column(String(50), nullable=False)
+    # ✅ FIX: Added restaurant_id so routers/products.py can filter by restaurant
+    restaurant_id = Column(Integer, ForeignKey("restaurants.id"), nullable=True)
+
+class Order(Base):
+    __tablename__ = "orders"
+    id = Column(Integer, primary_key=True, index=True)
+    total_amount = Column(Numeric(10, 2), nullable=False)
+    payment_method = Column(Enum('upi', 'cash', 'card'), nullable=False)
+    payment_status = Column(Enum('pending', 'paid'), default='pending')
+    status = Column(Enum('created', 'active', 'ready', 'completed'), default='created')
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    token = Column(String(255)) 
+    restaurant_id = Column(Integer, ForeignKey("restaurants.id"), nullable=False)
+    items = relationship("OrderItem", back_populates="order")
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    quantity = Column(Integer, nullable=False)
+    subtotal = Column(Numeric(10, 2), nullable=False)
+    order = relationship("Order", back_populates="items")
+
+class StoreSetting(Base):
+    __tablename__ = "store_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    # ✅ FIX: Changed column names to match your actual SQL database (upi_id, payee_name)
+    # Your error 'Unknown column store_settings.key_name' happened here
+    upi_id = Column(String(100), nullable=True)
+    payee_name = Column(String(100), nullable=True)
+    restaurant_id = Column(Integer, ForeignKey("restaurants.id"), nullable=True)
+
+================================================================================
+FILE: app/schemas/pos_schemas.py
+================================================================================
+
+from pydantic import BaseModel, EmailStr
+from typing import List, Optional
+from decimal import Decimal
+from datetime import datetime
+
+# --- AUTH SCHEMAS ---
+class UserBase(BaseModel):
+    username: str
+    email: EmailStr
+    role: str = "cashier || manager || admin"
+    restaurant_id: int
+
+class UserCreate(UserBase):
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserBase
+
+# --- PRODUCT SCHEMAS ---
+class ProductBase(BaseModel):
+    name: str
+    price: Decimal
+    stock: int
+    category: str
+
+# This is what the Router was looking for
+class ProductCreate(ProductBase):
+    pass
+
+class ProductResponse(ProductBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+# --- ORDER SCHEMAS ---
+class OrderItemCreate(BaseModel):
+    product_id: int
+    quantity: int
+    subtotal: Decimal
+
+class OrderCreate(BaseModel):
+    total_amount: Decimal
+    payment_method: str  # upi, cash, card
+    items: List[OrderItemCreate]
+
+class OrderResponse(BaseModel):
+    id: int
+    total_amount: Decimal
+    payment_method: str
+    payment_status: str
+    status: str
+    created_at: datetime
+    token: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+# --- SETTINGS SCHEMAS ---
+class SettingUpdate(BaseModel):
+    key_name: str
+    value: str
+
+================================================================================
+FILE: app/db/session.py
+================================================================================
+
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from app.core.config import settings
+
+# Construct Async SQLAlchemy URL
+# Format: mysql+aiomysql://user:password@host:port/dbname
+DATABASE_URL = f"mysql+aiomysql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20,
+)
+
+async_session = sessionmaker(
+    engine, 
+    class_=AsyncSession, 
+    expire_on_commit=False
+)
+
+# Dependency to get DB session in routes
+async def get_db():
+    async with async_session() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    connect_args={"ssl": True}  # <--- Try adding this if you get a connection error
+)
+
+================================================================================
+FILE: app/db/base.py
+================================================================================
+
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+================================================================================
+FILE: app/services/serial_service.py
+================================================================================
+
+import serial
+import logging
+from app.core.config import settings
+
+class SerialService:
+    def __init__(self):
+        self.port = None
+        self.initialize_port()
+
+    def initialize_port(self):
+        print(f"🔌 Attempting to connect to ESP32 on: {settings.PREFERRED_PORT}")
+        try:
+            self.port = serial.Serial(
+                port=settings.PREFERRED_PORT,
+                baudrate=settings.BAUD_RATE,
+                timeout=1
+            )
+            print(f"✅ ESP32 Connected on {settings.PREFERRED_PORT}")
+        except Exception as e:
+            print(f"⚠️ ESP32 Not Found ({str(e)}). Server continuing in 'Simulation Mode'.")
+            self.port = None
+
+    def send_token(self, token: str):
+        """
+        Sends a token to the ESP32 via UART.
+        Matches the behavior of sendTokenToESP in Node.js.
+        """
+        if not self.port or not self.port.is_open:
+            print(f"⚠️ ESP Disconnected. Skipping token '{token}' send.")
+            return False
+        
+        try:
+            message = f"{token}\n".encode('utf-8')
+            self.port.write(message)
+            print(f"🚀 Token '{token}' sent to ESP32")
+            return True
+        except Exception as e:
+            print(f"⚠️ Failed to write to Serial: {str(e)}")
+            return False
+
+# Global instance
+serial_bus = SerialService()

@@ -11,6 +11,8 @@ import {
   Plus,
   Trash2,
   Wifi,
+  Box,
+  BookOpen
 } from "lucide-react";
 import { getTheme, COMMON_STYLES, FONTS } from "./theme";
 import POSView from "./POSView";
@@ -19,6 +21,34 @@ import SalesReport from "./SalesReport";
 import AdminSettingsModal from "./AdminSettingsModal";
 import ActiveOrdersDrawer from "./ActiveOrdersDrawer";
 import { getUPIQR } from "./utils";
+import InventoryManager from "./InventoryManager";
+import ManagerDashboard from "./ManagerDashboard";
+import ProductManagement from "./ProductManagement";
+import RecipeManager from "./RecipeManager";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const apiRequest = async (url, options = {}) => {
+  const token = localStorage.getItem("auth_token");
+  // Ensure we don't have double slashes if the user provided one in .env
+  const cleanUrl = url.replace(/([^:]\/)\/+/g, "$1"); 
+  
+  const headers = {
+    "Content-Type": "application/json",
+    ...options.headers,
+    Authorization: `Bearer ${token}`,
+  };
+
+  const response = await fetch(cleanUrl, { ...options, headers });
+  
+  if (response.status === 401) {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("user_role");
+    window.location.reload(); 
+  }
+  return response;
+};
+
+
+ 
 
 export default function RestaurantVendorUI({
   user,
@@ -26,7 +56,7 @@ export default function RestaurantVendorUI({
   isDarkMode,
   onToggleTheme,
 }) {
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+ 
   const theme = getTheme(isDarkMode);
   const token = localStorage.getItem("auth_token");
 
@@ -54,7 +84,7 @@ export default function RestaurantVendorUI({
   const [showActiveOrders, setShowActiveOrders] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [activeTab, setActiveTab] = useState(
-    userRole === "admin" ? "dashboard" : "menu"
+    ["admin", "manager"].includes(userRole) ? "dashboard" : "pos"
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -91,10 +121,7 @@ export default function RestaurantVendorUI({
   // --- API ---
   const refreshProducts = async () => {
     try {
-      const res = await fetch(
-        `${API_URL}/products?restaurantId=${getRestaurantId()}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiRequest(`${API_URL}/products/`)
       if (res.ok) {
         const list = await res.json();
         const productList = Array.isArray(list) ? list : list.products || [];
@@ -123,9 +150,7 @@ export default function RestaurantVendorUI({
 
   const refreshUsers = async () => {
     try {
-      const userRes = await fetch(`${API_URL}/auth/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const userRes = await apiRequest(`${API_URL}/staff/`)
       if (userRes.ok) setUsersList(await userRes.json());
     } catch (e) {
       console.error(e);
@@ -134,14 +159,14 @@ export default function RestaurantVendorUI({
 
   const fetchActiveOrders = async () => {
     try {
-      const res = await fetch(`${API_URL}/orders?status=active`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiRequest(`${API_URL}/orders/`);
+ 
       if (res.ok) {
+        console.log("SERVER ORDERS", serverOrders)
         const serverOrders = await res.json();
         if (Array.isArray(serverOrders)) {
           const activeOnly = serverOrders.filter(
-            (o) => (o.payment_status || "").toLowerCase() !== "completed"
+            (o) => (o.status || "").toLowerCase() === "active"
           );
           setOrders(
             activeOnly.map((o) => ({
@@ -152,8 +177,16 @@ export default function RestaurantVendorUI({
                 o.payment_method ||
                 "cash"
               ).toLowerCase(),
-              total: Number(o.total || 0),
-              items: o.items || [],
+              total: Number(o.total || o.total_amount || 0),
+          
+              items: (o.items || []).map(it => {
+                const product = rawProducts.find(p => p.id === it.product_id);
+          
+                return {
+                  name: product ? product.name : "Unknown",
+                  quantity: it.quantity
+                };
+              })
             }))
           );
         }
@@ -162,10 +195,8 @@ export default function RestaurantVendorUI({
   };
   const fetchSalesHistory = async (date) => {
     try {
-      const res = await fetch(
-        `${API_URL}/orders/history?date=${date}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiRequest(
+        `${API_URL}/orders/history?date=${date}`);
   
       if (!res.ok) throw new Error("Failed to fetch sales history");
   
@@ -183,9 +214,7 @@ export default function RestaurantVendorUI({
       await refreshProducts();
       await fetchActiveOrders();
       try {
-        const sRes = await fetch(`${API_URL}/settings`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const sRes = await apiRequest(`${API_URL}/settings/`)
         if (sRes.ok) {
           const s = await sRes.json();
           setSettings({ upiId: s.upi_id, payeeName: s.payee_name });
@@ -199,13 +228,13 @@ export default function RestaurantVendorUI({
   }, [token, API_URL, userRole]);
 
   useEffect(() => {
-    if (userRole !== "admin" && activeTab === "dashboard") {
+    if (!["admin", "manager"].includes(userRole) && activeTab === "dashboard") {
       setActiveTab("menu");
     }
   }, [userRole, activeTab]);
 
   useEffect(() => {
-    if (activeTab === 'dashboard' && userRole === 'admin') {
+    if (!["admin", "manager"].includes(userRole) && activeTab === "dashboard") {
       fetchSalesHistory(reportDate);
     }
   }, [activeTab, reportDate]);
@@ -213,58 +242,63 @@ export default function RestaurantVendorUI({
   // --- HANDLERS ---
 
   // 1. ADD Product
-  const handleAdminAddProduct = async () => {
-    const rId = getRestaurantId();
-    // Ensure stock is sent as a number, defaulting to 0
-    const stockValue = newItem.stock ? parseInt(newItem.stock) : 0;
-    const productPayload = { ...newItem, stock: stockValue, restaurantId: rId };
-
-    await fetch(`${API_URL}/products`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(productPayload),
-    });
-
-    setNewItem({ name: "", price: "", category: "", stock: "", id: null });
-    setIsCreatingCategory(false);
-    setIsAddingItem(false);
-    refreshProducts();
+  const handleAdminAddProduct = async (formData) => {
+    try {
+      const payload = {
+        name: formData.name,
+        price: Number(formData.price),
+        stock: Number(formData.stock) || 0,
+        category: formData.category,
+      };
+  
+      const res = await apiRequest(`${API_URL}/products/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+  
+      const data = await res.json();
+  
+      if (!res.ok) {
+        console.error("Add failed:", data);
+        alert(data.detail || "Failed to add product");
+        return;
+      }
+  
+      await refreshProducts();
+    } catch (err) {
+      console.error("Add error:", err);
+    }
   };
 
   // 2. UPDATE Product (New Function for PUT Route)
-  const handleAdminUpdateProduct = async () => {
-    if (!newItem.id) return alert("Error: No product ID found for update");
-
-    const stockValue = newItem.stock ? parseInt(newItem.stock) : 0;
-    const productPayload = {
-      name: newItem.name,
-      price: newItem.price,
-      category: newItem.category,
-      stock: stockValue,
-    };
-
+  const handleAdminUpdateProduct = async (formData) => {
     try {
-      const res = await fetch(`${API_URL}/products/${newItem.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(productPayload),
-      });
-
-      if (!res.ok) throw new Error("Update failed");
-
-      setNewItem({ name: "", price: "", category: "", stock: "", id: null });
-      setIsCreatingCategory(false);
-      setIsAddingItem(false);
-      refreshProducts();
-    } catch (e) {
-      console.error(e);
-      alert("Failed to update product");
+      const payload = {
+        name: formData.name,
+        price: Number(formData.price),
+        stock: Number(formData.stock) || 0,
+        category: formData.category,
+      };
+  
+      const res = await apiRequest(
+        `${API_URL}/products/${formData.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        }
+      );
+  
+      const data = await res.json();
+  
+      if (!res.ok) {
+        console.error("Update failed:", data);
+        alert(data.detail || "Failed to update product");
+        return;
+      }
+  
+      await refreshProducts();
+    } catch (err) {
+      console.error("Update error:", err);
     }
   };
 
@@ -272,17 +306,14 @@ export default function RestaurantVendorUI({
     if (!newUser.username || !newUser.email || !newUser.password) {
       return alert("Fill all fields");
     }
-    const res = await fetch(`${API_URL}/auth/staff`, {
+    const res = await apiRequest(`${API_URL}/staff/`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+     
       body: JSON.stringify(newUser),
     });
     const data = await res.json();
     if (!res.ok) {
-      alert(data.message || "Failed to create staff");
+      alert(data.detail || "Failed to create staff");
       return;
     }
     setNewUser({ username: "", email: "", password: "", role: "cashier" });
@@ -291,13 +322,24 @@ export default function RestaurantVendorUI({
 
   const handleAdminDeleteUser = async (id) => {
     if (!confirm("Delete User?")) return;
+  
     try {
-      const res = await fetch(`${API_URL}/auth/users/${id}`, {
+      const res = await apiRequest(`${API_URL}/staff/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setUsersList((prev) => prev.filter((u) => u.id !== id));
-    } catch (e) {}
+  
+      const data = await res.json().catch(() => ({}));
+  
+      if (!res.ok) {
+        console.error("Delete failed:", res.status, data);
+        alert(data.detail || "Delete failed");
+        return;
+      }
+  
+      setUsersList((prev) => prev.filter((u) => u.id !== id));
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
   };
 
   // --- DOCK LOGIC ---
@@ -398,18 +440,37 @@ export default function RestaurantVendorUI({
     console.log("!!! handleCheckoutClick TRIGGERED !!!");
     console.log("Current selectedToken:", selectedToken);
     console.log("Dock Status:", dockConnected);
-
+    setActiveUpiData(null);
     if (dockConnected && selectedToken) {
       console.log(`Sending token ${selectedToken} to dock hardware...`);
       sendToDock(selectedToken);
     } else {
       console.warn("Signal not sent: Dock not connected or Token missing.");
     }
+
     setShowCheckout(true);
   };
 
   // --- 2. FIXED: Handle the Database Save ---
   const finalizeOrder = async (payData) => {
+    console.log("FINALIZE ORDER CALLED:", payData);
+    if (payData?.paymentMethod === "upi" && !activeUpiData) {
+      console.log("UPI branch triggered");
+      const qrConfig = {
+        pa: settings.upiId,
+        pn: settings.payeeName,
+        cu: "INR",
+      };
+      
+      const qrUrl = getUPIQR(qrConfig, grandTotal, selectedToken);
+    
+      setActiveUpiData({
+        qr: qrUrl,
+        payee: settings.payeeName,
+      });
+    
+      return;
+    }
     // 1. Identify the payment method
     let method = typeof payData === "object" ? payData.paymentMethod : payData;
   
@@ -421,31 +482,28 @@ export default function RestaurantVendorUI({
       quantity: i.quantity 
     }));
     const payload = {
-      restaurantId: getRestaurantId(),
-      paymentMethod: method,
-      token: tokenToSave, // This is the most important line
-      total: grandTotal,
+      total_amount: grandTotal,
+      payment_method: method,
+      token: tokenToSave,
       items: cart.map((i) => ({
-        productId: i.id,
-        name: i.name,
-        price: i.price,
+        product_id: i.id,
         quantity: i.quantity,
+        subtotal: i.price * i.quantity
       })),
     };
   
     try {
       console.log("Saving order to database...", payload);
-      const res = await fetch(`${API_URL}/orders`, {
+      const res = await apiRequest(`${API_URL}/orders/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(payload),
       });
   
       const r = await res.json();
-      if (!res.ok) throw new Error(r.message || "Failed to save order");
+      if (!res.ok) {
+        console.error("Backend error:", r);
+        throw new Error(JSON.stringify(r));
+      }
   
       if (method === "upi") {
         const qrConfig = {
@@ -458,7 +516,7 @@ export default function RestaurantVendorUI({
       } else {
         // 3. Update the Kitchen State IMMEDIATELY for Cash/Card
         const newO = {
-          id: r.orderId || Date.now(),
+          id: r.id,
           token: tokenToSave, // Store as the number selected
           items: localItems, // Keeping empty since you don't want to show items
           startedAt: new Date().toISOString(),
@@ -486,22 +544,28 @@ export default function RestaurantVendorUI({
 
   const handleMarkReady = async (id) => {
     if (!confirm("Complete Order?")) return;
+  
     try {
-      const res = await fetch(`${API_URL}/orders/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await apiRequest(`${API_URL}/orders/${id}/complete`, {
+        method: "PUT",
       });
-      if (!res.ok) throw new Error("Failed to complete order");
+  
+      const data = await res.json();
+  
+      if (!res.ok) throw new Error(data.detail || "Failed to complete order");
+  
       setOrders((p) => p.filter((o) => String(o.id) !== String(id)));
     } catch (e) {
-      alert("Failed to complete order");
+      console.error("Complete order error:", e);
+      alert(e.message);
     }
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async(method) => {
     setCart([]);
     setDiscount(0);
     setActiveUpiData(null);
+    await finalizeOrder({ paymentMethod: method });
     setShowCheckout(false);
     setTimeout(fetchActiveOrders, 500);
   };
@@ -524,25 +588,53 @@ export default function RestaurantVendorUI({
           </div>
           <nav className="flex items-center gap-1">
             {[
-              {
-                id: "dashboard",
-                icon: LayoutDashboard,
-                label: "Dashboard",
-                role: "admin",
-              },
-              { id: "menu", icon: Coffee, label: "Menu" },
-              {
-                id: "kitchen",
-                icon: Bell,
-                label: "Kitchen",
-                role: "cashier",
-                action: () => setShowActiveOrders(true),
-                badge: orders.length,
-              },
-              { id: "users", icon: User, label: "Staff", role: "admin" },
-            ].map(
+            {
+              id: "dashboard",
+              icon: LayoutDashboard,
+              label: "Dashboard",
+              roles: ["admin", "manager"],
+            },
+            {
+              id: "pos",
+              icon: Coffee,
+              label: "MENU",
+              roles: ["cashier"],
+            },
+            {
+              id: "products",
+              icon: Box,
+              label: "Products",
+              roles: ["admin", "manager"],
+            },
+            {
+              id: "kitchen",
+              icon: Bell,
+              label: "Kitchen",
+              roles: ["cashier", "manager"],
+              action: () => setShowActiveOrders(true),
+              badge: orders.length,
+            },
+            {
+              id: "users",
+              icon: User,
+              label: "Staff",
+              roles: ["admin"],
+            },
+            {
+              id: "inventory",
+              icon: Box,
+              label: "Inventory",
+              roles: ["admin", "manager"],
+            },
+            {
+              id: "recipes",
+              icon: BookOpen,
+              label: "Recipes",
+              roles: ["admin","manager"]
+            }
+          ].map(
               (item) =>
-                (!item.role || item.role === userRole) && (
+              (!item.roles || item.roles.includes(userRole)) && (
                   <button
                     key={item.id}
                     onClick={() =>
@@ -631,60 +723,75 @@ export default function RestaurantVendorUI({
       {/* Main Content */}
       <main className={`flex-1 flex flex-col overflow-hidden ${theme.bg.main}`}>
         <div className="flex-1 overflow-y-auto p-0 relative">
-          {activeTab === "dashboard" && userRole === "admin" && (
-            <div className="p-8">
-              <SalesReport
-                history={salesHistory}
-                reportDate={reportDate}
-                setReportDate={setReportDate}
-                isDarkMode={isDarkMode}
-              />
-            </div>
-          )}
-          {activeTab === "menu" && (
-            <POSView
-              menu={menu}
-              categories={userRole === "admin" ? [] : categories}
-              cart={cart}
-              orders={orders}
-              selectedCategory={userRole === "admin" ? null : selectedCategory}
-              setSelectedCategory={
-                userRole === "admin" ? () => {} : setSelectedCategory
-              }
-              availableTokens={availableTokens}
-              selectedToken={selectedToken}
-              onSetToken={setSelectedToken}
-              onAddToCart={addToCart}
-              onRemoveFromCart={removeFromCart}
-              onCheckout={handleCheckoutClick}
+        {activeTab === "dashboard" && ["admin","manager"].includes(userRole) && (
+  <div className="p-8">
+    <SalesReport
+      history={salesHistory}
+      reportDate={reportDate}
+      setReportDate={setReportDate}
+      isDarkMode={isDarkMode}
+    />
+  </div>
+)}
+
+        {activeTab === "dashboard" && userRole === "manager" && (
+          <div className="p-8">
+            <ManagerDashboard
+              apiRequest={apiRequest}
               isDarkMode={isDarkMode}
-              discount={discount}
-              setDiscount={setDiscount}
-              taxRate={taxRate}
-              onConnectDock={connectDock}
-              dockConnected={dockConnected}
-              onCallCustomer={(t) => sendToDock(t)}
-              userRole={userRole}
-              isAddingItem={isAddingItem}
-              setIsAddingItem={setIsAddingItem}
-              newItem={newItem}
-              setNewItem={setNewItem}
-              isCreatingCategory={isCreatingCategory}
-              setIsCreatingCategory={setIsCreatingCategory}
-              // ✅ PASSED HANDLERS FOR ADD & UPDATE
-              handleAdminAddProduct={handleAdminAddProduct}
-              handleAdminUpdateProduct={handleAdminUpdateProduct}
-              handleAdminDeleteProduct={(id) => {
-                if (confirm("Delete?"))
-                  fetch(`${API_URL}/products/${id}`, {
-                    method: "DELETE",
-                    headers: { Authorization: `Bearer ${token}` },
-                  }).then(refreshProducts);
-              }}
-              rawProducts={rawProducts}
             />
-          )}
-          {activeTab === "users" && userRole === "admin" && (
+          </div>
+        )}
+  
+  {activeTab === "pos" && userRole === "cashier" && (
+  <POSView
+    menu={menu}
+    categories={categories}
+    cart={cart}
+    selectedCategory={selectedCategory}
+    setSelectedCategory={setSelectedCategory}
+    availableTokens={availableTokens}
+    selectedToken={selectedToken}
+    onSetToken={setSelectedToken}
+    onAddToCart={addToCart}
+    onRemoveFromCart={removeFromCart}
+    onCheckout={handleCheckoutClick}
+    isDarkMode={isDarkMode}
+    discount={discount}
+    setDiscount={setDiscount}
+    taxRate={taxRate}
+  />
+)}
+{activeTab === "products" && ["admin","manager"].includes(userRole) && (
+  <ProductManagement
+    rawProducts={rawProducts}
+    categories={categories}
+    isDarkMode={isDarkMode}
+    onAdd={handleAdminAddProduct}
+    onUpdate={handleAdminUpdateProduct}
+    onDelete={(id) => {
+      if (confirm("Delete?"))
+        apiRequest(`${API_URL}/products/${id}`, {
+          method: "DELETE",
+        }).then(refreshProducts);
+    }}
+  />
+)}
+          {activeTab === "inventory" && ["admin","manager"].includes(userRole) && (
+  <InventoryManager
+    apiRequest={apiRequest}
+    isDarkMode={isDarkMode}
+  />
+)}
+{activeTab === "recipes" && ["admin","manager"].includes(userRole) && (
+  <RecipeManager
+    apiRequest={apiRequest}
+    isDarkMode={isDarkMode}
+    products={rawProducts}
+  />
+)}
+          {activeTab === "users" && ["admin","manager"].includes(userRole) && (
+            
             <div className="max-w-4xl mx-auto p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <h2 className="text-2xl font-semibold mb-8">Staff Management</h2>
               <div
