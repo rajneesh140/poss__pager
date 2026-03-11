@@ -7,6 +7,8 @@ from app.routers import staff
 from app.routers import ingredients
 from app.routers import recipes
 from app.routers import dashboard
+from app.db.base import Base
+from app.db.session import engine
 app = FastAPI(title="POS Backend - FastAPI")
 origins = [
     "http://localhost:5173",
@@ -35,7 +37,14 @@ app.include_router(staff.router)
 app.include_router(ingredients.router)
 app.include_router(recipes.router)
 app.include_router(dashboard.router)
+@app.on_event("startup")
+async def create_tables():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
+@app.get("/")
+async def root():
+    return {"message": "POS Backend Online"}
 @app.get("/")
 async def root():
     # Preserving exact health check response
