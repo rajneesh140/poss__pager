@@ -59,7 +59,8 @@ export default function RestaurantVendorUI({
  
   const theme = getTheme(isDarkMode);
   const token = localStorage.getItem("auth_token");
-
+  const getUsername = () => 
+  user?.username || localStorage.getItem("username") || "User";
   // Helpers
   const getRestaurantId = () =>
     user?.restaurantId || user?.user?.restaurantId || user?.restaurant_id || 1;
@@ -69,6 +70,7 @@ export default function RestaurantVendorUI({
     localStorage.getItem("user_role") ||
     "cashier";
   const userRole = getUserRole();
+  const displayName = getUsername();
 
   // --- STATE ---
   const [orders, setOrders] = useState([]);
@@ -113,10 +115,11 @@ export default function RestaurantVendorUI({
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [discount, setDiscount] = useState(0);
   const [taxRate] = useState(5);
-  const [settings, setSettings] = useState({ upiId: "", payeeName: "" });
+  const [settings, setSettings,] = useState({ upiId: "", payeeName: "",kitchenCapacity: 20 });
   const [activeUpiData, setActiveUpiData] = useState(null);
 
   const hasFetched = useRef(false);
+  
 
   // --- API ---
   const refreshProducts = async () => {
@@ -135,8 +138,8 @@ export default function RestaurantVendorUI({
           grouped[cat].push({
             id: Number(p.id),
             name: p.name,
-            price: Number(p.price),
-            stock: p.stock,
+            price: p.price !== null ? Number(p.price) : 0, // ✅ Ensure Number
+            stock: p.stock !== null ? Number(p.stock) : 0, // ✅ Ensure Number
             category: cat,
           });
         });
@@ -160,30 +163,26 @@ export default function RestaurantVendorUI({
   const fetchActiveOrders = async () => {
     try {
       const res = await apiRequest(`${API_URL}/orders/`);
- 
       if (res.ok) {
-        console.log("SERVER ORDERS", serverOrders)
         const serverOrders = await res.json();
         if (Array.isArray(serverOrders)) {
+          // ✅ FIX: Strict filter for "active" status
           const activeOnly = serverOrders.filter(
             (o) => (o.status || "").toLowerCase() === "active"
           );
+
           setOrders(
             activeOnly.map((o) => ({
               ...o,
-              startedAt: o.startedAt || o.created_at || Date.now(),
-              paymentMethod: (
-                o.paymentMethod ||
-                o.payment_method ||
-                "cash"
-              ).toLowerCase(),
-              total: Number(o.total || o.total_amount || 0),
-          
+              // Use the actual backend keys
+              startedAt: o.created_at || o.startedAt || Date.now(),
+              paymentMethod: (o.payment_method || "cash").toLowerCase(),
+              total: Number(o.total_amount || 0),
+              // Ensure items are mapped correctly so they don't show as empty on refresh
               items: (o.items || []).map(it => {
                 const product = rawProducts.find(p => p.id === it.product_id);
-          
                 return {
-                  name: product ? product.name : "Unknown",
+                  name: product ? product.name : "Item",
                   quantity: it.quantity
                 };
               })
@@ -191,7 +190,9 @@ export default function RestaurantVendorUI({
           );
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Polling error:", e);
+    }
   };
   const fetchSalesHistory = async (date) => {
     try {
@@ -217,7 +218,7 @@ export default function RestaurantVendorUI({
         const sRes = await apiRequest(`${API_URL}/settings/`)
         if (sRes.ok) {
           const s = await sRes.json();
-          setSettings({ upiId: s.upi_id, payeeName: s.payee_name });
+          setSettings({ upiId: s.upi_id, payeeName: s.payee_name ,kitchenCapacity: s.kitchen_capacity || 20});
         }
         if (userRole === "admin") await refreshUsers();
       } catch (e) {}
@@ -437,6 +438,12 @@ export default function RestaurantVendorUI({
   // --- 1. FIXED: Handle the Checkout Button Click ---
   const handleCheckoutClick = () => {
     // FORCE a log to see if the function even fires
+    if (orders.length >= settings.kitchenCapacity) {
+      const proceed = window.confirm(
+        `⚠️ WARNING: Kitchen is at capacity (${orders.length}/${settings.kitchenCapacity}).\n\nPlacing this order may cause significant delays. Continue?`
+      );
+      if (!proceed) return;
+    }
     console.log("!!! handleCheckoutClick TRIGGERED !!!");
     console.log("Current selectedToken:", selectedToken);
     console.log("Dock Status:", dockConnected);
@@ -454,33 +461,22 @@ export default function RestaurantVendorUI({
   // --- 2. FIXED: Handle the Database Save ---
   const finalizeOrder = async (payData) => {
     console.log("FINALIZE ORDER CALLED:", payData);
+    
     if (payData?.paymentMethod === "upi" && !activeUpiData) {
-      console.log("UPI branch triggered");
       const qrConfig = {
         pa: settings.upiId,
         pn: settings.payeeName,
         cu: "INR",
       };
-      
       const qrUrl = getUPIQR(qrConfig, grandTotal, selectedToken);
-    
-      setActiveUpiData({
-        qr: qrUrl,
-        payee: settings.payeeName,
-      });
-    
+      setActiveUpiData({ qr: qrUrl, payee: settings.payeeName });
       return;
     }
-    // 1. Identify the payment method
+
     let method = typeof payData === "object" ? payData.paymentMethod : payData;
-  
-    // 2. Capture the EXACT token currently selected in the UI
-    // We convert to Number to match your DB schema (INT)
     const tokenToSave = Number(selectedToken);
-    const localItems = cart.map(i => ({ 
-      name: i.name, 
-      quantity: i.quantity 
-    }));
+    const localItems = cart.map(i => ({ name: i.name, quantity: i.quantity }));
+
     const payload = {
       total_amount: grandTotal,
       payment_method: method,
@@ -493,50 +489,40 @@ export default function RestaurantVendorUI({
     };
   
     try {
-      console.log("Saving order to database...", payload);
       const res = await apiRequest(`${API_URL}/orders/`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
   
       const r = await res.json();
-      if (!res.ok) {
-        console.error("Backend error:", r);
-        throw new Error(JSON.stringify(r));
-      }
+      if (!res.ok) throw new Error(r.detail || "Order failed");
   
-      if (method === "upi") {
-        const qrConfig = {
-          pa: settings.upiId,
-          pn: settings.payeeName,
-          cu: "INR",
-        };
-        const qrUrl = getUPIQR(qrConfig, grandTotal, tokenToSave, r.orderId);
-        setActiveUpiData({ qr: qrUrl });
+      if (method === "upi" && !payData.confirmed) {
+         const qrConfig = { pa: settings.upiId, pn: settings.payeeName, cu: "INR" };
+         const qrUrl = getUPIQR(qrConfig, grandTotal, tokenToSave, r.id);
+         setActiveUpiData({ qr: qrUrl });
       } else {
-        // 3. Update the Kitchen State IMMEDIATELY for Cash/Card
+        // ✅ KITCHEN FIX: Use "active" status to match server-side polling filter
         const newO = {
           id: r.id,
-          token: tokenToSave, // Store as the number selected
-          items: localItems, // Keeping empty since you don't want to show items
+          token: tokenToSave,
+          items: localItems,
           startedAt: new Date().toISOString(),
           total: grandTotal,
-          payment_status: "pending", // Must be 'pending' to show in your kitchen filter
+          status: "active", 
         };
   
-        // Add to the top of the list so the kitchen sees it instantly
         setOrders((p) => [newO, ...p]);
         
-        // 4. Reset POS UI
+        // ✅ STOCK FIX: Immediately trigger product refresh to update card counts
+        await refreshProducts();
+
         setCart([]);
         setDiscount(0);
         setShowCheckout(false);
-  
-        // 5. Re-sync with server after a short delay to ensure DB consistency
-        setTimeout(fetchActiveOrders, 1500);
+        setActiveUpiData(null);
       }
     } catch (e) {
-      console.error("Finalize Error:", e);
       alert(e.message);
       setShowCheckout(false);
     }
@@ -565,7 +551,7 @@ export default function RestaurantVendorUI({
     setCart([]);
     setDiscount(0);
     setActiveUpiData(null);
-    await finalizeOrder({ paymentMethod: method });
+    await finalizeOrder({ paymentMethod: method,confirmed: true });
     setShowCheckout(false);
     setTimeout(fetchActiveOrders, 500);
   };
@@ -613,6 +599,7 @@ export default function RestaurantVendorUI({
               roles: ["cashier", "manager"],
               action: () => setShowActiveOrders(true),
               badge: orders.length,
+              isCritical: orders.length >= settings.kitchenCapacity
             },
             {
               id: "users",
@@ -635,30 +622,22 @@ export default function RestaurantVendorUI({
           ].map(
               (item) =>
               (!item.roles || item.roles.includes(userRole)) && (
-                  <button
-                    key={item.id}
-                    onClick={() =>
-                      item.action ? item.action() : setActiveTab(item.id)
-                    }
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors relative
-                    ${
-                      activeTab === item.id && !item.action
-                        ? `${theme.bg.active} ${theme.text.main}`
-                        : theme.button.ghost
-                    }`}
-                  >
-                    <item.icon size={16} />
-                    <span>{item.label}</span>
-                    {item.badge > 0 && (
-                      <span
-                        className={`${COMMON_STYLES.badge(
-                          isDarkMode
-                        )} text-[10px] min-w-[18px] h-[18px] flex items-center justify-center`}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
+                <button
+                key={item.id}
+                onClick={() => item.action ? item.action() : setActiveTab(item.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors relative
+                ${activeTab === item.id && !item.action ? `${theme.bg.active} ${theme.text.main}` : theme.button.ghost}
+                ${item.id === 'kitchen' && orders.length >= settings.kitchenCapacity ? 'text-red-500 animate-pulse bg-red-500/10' : ''}`}
+              >
+                <item.icon size={16} className={item.id === 'kitchen' && orders.length >= settings.kitchenCapacity ? 'text-red-500' : ''} />
+                <span>{item.label}</span>
+                {/* Update badge styling */}
+                {item.badge > 0 && (
+                  <span className={`${orders.length >= settings.kitchenCapacity ? 'bg-red-600' : 'bg-blue-600'} text-white text-[10px] min-w-[18px] h-[18px] rounded-full flex items-center justify-center`}>
+                    {item.badge}
+                  </span>
+                )}
+              </button>
                 )
             )}
           </nav>
@@ -698,7 +677,7 @@ export default function RestaurantVendorUI({
           )}
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium">{user?.username || "Admin"}</p>
+              <p className="text-sm font-medium">{displayName}</p>
               <p
                 className={`text-xs uppercase font-medium tracking-wider ${theme.text.tertiary}`}
               >

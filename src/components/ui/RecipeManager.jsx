@@ -79,9 +79,9 @@ export default function RecipeManager({ apiRequest, isDarkMode, products }) {
       alert("Select a product first");
       return;
     }
-
-    if (!newEntry.ingredient_id || !newEntry.quantity_required) {
-      alert("Select ingredient and quantity");
+    const qty = parseFloat(newEntry.quantity_required);
+    if (!newEntry.ingredient_id || isNaN(qty) || qty <= 0) {
+      alert("Please enter a valid quantity greater than 0 (e.g., 0.5)");
       return;
     }
 
@@ -93,7 +93,7 @@ export default function RecipeManager({ apiRequest, isDarkMode, products }) {
         body: JSON.stringify({
           product_id: Number(selectedProduct),
           ingredient_id: Number(newEntry.ingredient_id),
-          quantity_required: Number(newEntry.quantity_required)
+          quantity_required: qty
         })
       });
 
@@ -153,13 +153,17 @@ export default function RecipeManager({ apiRequest, isDarkMode, products }) {
   // SAVE EDIT
   // ------------------------------------------------
   const saveEdit = async (recipeId) => {
+    if (isNaN(qty) || qty <= 0) {
+      alert("Quantity must be greater than 0");
+      return;
+    }
     try {
       const res = await apiRequest(`${API_URL}/recipes/${recipeId}`, {
         method: "PUT",
         body: JSON.stringify({
           product_id: Number(selectedProduct),
           ingredient_id: recipe.find((r) => r.id === recipeId).ingredient_id,
-          quantity_required: Number(editingQty)
+          quantity_required: qty
         })
       });
 
@@ -252,6 +256,8 @@ export default function RecipeManager({ apiRequest, isDarkMode, products }) {
               <input
                 type="number"
                 placeholder="Quantity"
+                step="any" 
+                min="0.01"
                 className={COMMON_STYLES.input(isDarkMode)}
                 value={newEntry.quantity_required}
                 onChange={(e) =>
@@ -294,6 +300,8 @@ export default function RecipeManager({ apiRequest, isDarkMode, products }) {
                       {editingId === r.id ? (
                         <input
                           type="number"
+                          step="any"    // ✅ Allows any decimal point
+                          min="0.001"
                           className={COMMON_STYLES.input(isDarkMode)}
                           value={editingQty}
                           onChange={(e) => setEditingQty(e.target.value)}

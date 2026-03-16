@@ -23,29 +23,17 @@ export default function SalesReport({
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [history, reportDate]);
 
-  // ---------------- METRICS (NO RECOMPUTATION) ----------------
-  const totalRevenue = filteredOrders.reduce(
-    (sum, o) => sum + Number(o.total),
-    0
-  );
-
-  const totalCash = filteredOrders
-    .filter(o => o.payment_method === 'cash')
-    .reduce((sum, o) => sum + Number(o.total), 0);
-
-  const totalDigital = filteredOrders
-    .filter(o => o.payment_method !== 'cash')
-    .reduce((sum, o) => sum + Number(o.total), 0);
+  
 
   // ---------------- HOURLY GRAPH ----------------
   const chartData = useMemo(() => {
     const hours = Array(24).fill(0);
-    filteredOrders.forEach(o => {
+    history.forEach(o => {
       const h = new Date(o.created_at).getHours();
-      hours[h] += Number(o.total);
+      hours[h] += Number(o.total_amount || 0);
     });
     return hours;
-  }, [filteredOrders]);
+  }, [history]);
 
   const maxSales = Math.max(...chartData, 100);
 
@@ -120,28 +108,7 @@ export default function SalesReport({
         </div>
       </div>
 
-      {/* METRICS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { icon: Wallet, label: 'Revenue', value: `₹${totalRevenue}` },
-          { icon: Smartphone, label: 'Digital', value: `₹${totalDigital}` },
-          { icon: Banknote, label: 'Cash', value: `₹${totalCash}` },
-          { icon: TrendingUp, label: 'Orders', value: filteredOrders.length }
-        ].map((m, i) => (
-          <div
-            key={i}
-            className={`p-5 rounded-xl border ${COMMON_STYLES.card(isDarkMode)}`}
-          >
-            <div className={`flex items-center gap-2 mb-2 ${theme.text.secondary}`}>
-              <m.icon size={16} />
-              <span className="text-xs uppercase">{m.label}</span>
-            </div>
-            <div className={`text-2xl font-semibold ${theme.text.main}`}>
-              {m.value}
-            </div>
-          </div>
-        ))}
-      </div>
+      
 
       {/* HOURLY GRAPH */}
       <div className={`mb-6 rounded-xl border p-6 ${COMMON_STYLES.card(isDarkMode)}`}>
@@ -164,42 +131,7 @@ export default function SalesReport({
       </div>
 
       {/* HISTORY TABLE */}
-      <div className={`flex-1 rounded-xl border ${COMMON_STYLES.card(isDarkMode)}`}>
-        <table className="w-full text-sm">
-          <thead className={COMMON_STYLES.tableHeader(isDarkMode)}>
-            <tr>
-              <th className="p-3 text-left">ID</th>
-              <th className="p-3 text-left">Time</th>
-              <th className="p-3 text-left">Method</th>
-              <th className="p-3 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredOrders.length === 0 ? (
-              <tr>
-                <td colSpan="4" className="p-6 text-center">
-                  No transactions.
-                </td>
-              </tr>
-            ) : (
-              filteredOrders.map(o => (
-                <tr key={o.id} className={COMMON_STYLES.tableRow(isDarkMode)}>
-                  <td className="p-3 font-mono">#{o.id}</td>
-                  <td className="p-3">
-                    {new Date(o.created_at).toLocaleTimeString()}
-                  </td>
-                  <td className="p-3 uppercase">
-                    {o.payment_method}
-                  </td>
-                  <td className="p-3 text-right font-semibold">
-                    ₹{o.total}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      
     </div>
   );
 }

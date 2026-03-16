@@ -24,8 +24,8 @@ class Token(BaseModel):
 # --- PRODUCT SCHEMAS ---
 class ProductBase(BaseModel):
     name: str
-    price: Decimal
-    stock: int
+    price: float = Field(..., ge=0, description="Price cannot be negative")
+    stock: int = Field(default=0, ge=0, description="Stock cannot be negative")
     category: str
 
 # This is what the Router was looking for
@@ -86,7 +86,7 @@ class IngredientResponse(BaseModel):
 class RecipeCreate(BaseModel):
     product_id: int
     ingredient_id: int
-    quantity_required: int
+    quantity_required: float = Field(..., gt=0, description="Quantity must be greater than zero")
 
 
 class RecipeResponse(BaseModel):

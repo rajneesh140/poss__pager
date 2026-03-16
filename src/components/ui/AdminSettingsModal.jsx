@@ -10,7 +10,7 @@ export default function AdminSettingsModal({ open, onClose, restaurantId, isDark
   const [payeeName, setPayeeName] = useState("");
   const [loading, setLoading] = useState(false);
   const theme = getTheme(isDarkMode);
-
+  const [kitchenCapacity, setKitchenCapacity] = useState(20);
   // 1. Fetch Settings on Load
   useEffect(() => {
     if (open) {
@@ -29,6 +29,7 @@ export default function AdminSettingsModal({ open, onClose, restaurantId, isDark
                 // Database returns snake_case, so we read those keys
                 setUpiId(data.upi_id || ""); 
                 setPayeeName(data.payee_name || ""); 
+                setKitchenCapacity(data.kitchen_capacity || 20); // Add this
             } 
         } catch (e) { 
             console.error("Fetch settings failed:", e); 
@@ -55,6 +56,7 @@ export default function AdminSettingsModal({ open, onClose, restaurantId, isDark
             body: JSON.stringify({ 
                 upiId: upiId,          
                 payeeName: payeeName,  
+                kitchenCapacity: Number(kitchenCapacity), // Add this
                 restaurantId 
             }) 
         }); 
@@ -115,6 +117,19 @@ export default function AdminSettingsModal({ open, onClose, restaurantId, isDark
                 </div>
                 <p className={`text-[10px] mt-1 ${theme.text.muted}`}>The name customers see when scanning.</p>
             </div>
+            <div>
+    <label className={`block text-xs font-medium uppercase mb-2 ${theme.text.secondary}`}>Kitchen Capacity</label>
+    <div className="relative">
+        <Box className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme.text.secondary}`} size={18}/>
+        <input 
+            type="number"
+            value={kitchenCapacity} 
+            onChange={(e) => setKitchenCapacity(e.target.value)} 
+            className={`w-full pl-10 pr-4 py-2.5 ${COMMON_STYLES.input(isDarkMode)}`} 
+        />
+    </div>
+    <p className={`text-[10px] mt-1 ${theme.text.muted}`}>Max active orders before warning cashier.</p>
+</div>
         </div>
 
         {/* Footer */}

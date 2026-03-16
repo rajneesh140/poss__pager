@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import select as sa_select
 from typing import List
-
+from datetime import datetime, time, date
+from sqlalchemy import func
 from app.db.session import get_db
 from app.models.pos_models import (
     Order,
@@ -227,3 +228,28 @@ async def complete_order(
     await db.commit()
 
     return {"message": "Order marked as completed"}
+@router.get("/history")
+async def get_order_history(
+    date: str, # Format: YYYY-MM-DD from frontend
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        # ✅ Convert string date to start and end of day for accurate filtering
+        selected_date = datetime.strptime(date, "%Y-%m-%d").date()
+        day_start = datetime.combine(selected_date, time.min)
+        day_end = datetime.combine(selected_date, time.max)
+
+        result = await db.execute(
+            select(Order).where(
+                Order.restaurant_id == current_user.restaurant_id,
+                Order.created_at >= day_start,
+                Order.created_at <= day_end
+            ).order_by(Order.created_at.desc())
+        )
+        
+        orders = result.scalars().all()
+        
+        return {"orders": orders}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid date format")

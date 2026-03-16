@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Numeric, Enum, ForeignKey, TIMESTAMP, func, Text
+from sqlalchemy import Column, Integer, String, Numeric, Enum, ForeignKey, TIMESTAMP, func, Text,Float,CheckConstraint
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -30,6 +30,11 @@ class Product(Base):
     category = Column(String(50), nullable=False)
     # ✅ FIX: Added restaurant_id so routers/products.py can filter by restaurant
     restaurant_id = Column(Integer, ForeignKey("restaurants.id"), nullable=True)
+    # ✅ Add constraints for price and stock
+    __table_args__ = (
+        CheckConstraint('price >= 0', name='check_price_not_negative'),
+        CheckConstraint('stock >= 0', name='check_stock_not_negative'),
+    )
 
 class Order(Base):
     __tablename__ = "orders"
@@ -87,4 +92,8 @@ class Recipe(Base):
 
     ingredient_id = Column(Integer, ForeignKey("ingredients.id"), nullable=False)
 
-    quantity_required = Column(Integer, nullable=False)
+    quantity_required = Column(Float, nullable=False)
+    
+    __table_args__ = (
+        CheckConstraint('quantity_required > 0', name='check_quantity_positive'),
+    )

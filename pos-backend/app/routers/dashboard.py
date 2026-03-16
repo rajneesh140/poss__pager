@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import date
+from datetime import date, datetime, time
 
 from app.db.session import get_db
 from app.models.pos_models import Order, OrderItem, Ingredient, Product, User
@@ -39,13 +39,15 @@ async def dashboard_summary(
 
     manager_or_admin(current_user)
 
-    today = date.today()
+    today_start = datetime.combine(date.today(), time.min)
+    today_end = datetime.combine(date.today(), time.max)
 
     # Total revenue today
     revenue_query = await db.execute(
         select(func.sum(Order.total_amount)).where(
             Order.restaurant_id == current_user.restaurant_id,
-            func.date(Order.created_at) == today
+            Order.created_at >= today_start,
+            Order.created_at <= today_end
         )
     )
 
@@ -53,7 +55,8 @@ async def dashboard_summary(
     orders_query = await db.execute(
         select(func.count(Order.id)).where(
             Order.restaurant_id == current_user.restaurant_id,
-            func.date(Order.created_at) == today
+            Order.created_at >= today_start,
+            Order.created_at <= today_end
         )
     )
 
@@ -61,7 +64,7 @@ async def dashboard_summary(
     active_query = await db.execute(
         select(func.count(Order.id)).where(
             Order.restaurant_id == current_user.restaurant_id,
-            Order.status != "completed"
+            Order.status == "active" 
         )
     )
 
