@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+// ✅ Added useCallback to the imports
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import {
   LogOut,
   LayoutDashboard,
@@ -109,7 +110,7 @@ export default function RestaurantVendorUI({
     password: "",
     role: "cashier",
   });
-
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   // POS Logic
   const [selectedToken, setSelectedToken] = useState("1");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -194,20 +195,24 @@ export default function RestaurantVendorUI({
       console.error("Polling error:", e);
     }
   };
-  const fetchSalesHistory = async (date) => {
-    try {
-      const res = await apiRequest(
-        `${API_URL}/orders/history?date=${date}`);
+  const fetchSalesHistory = useCallback(async (date) => {
+    if (activeTab !== "dashboard") return;
   
-      if (!res.ok) throw new Error("Failed to fetch sales history");
+    setIsHistoryLoading(true);
+    try {
+      const res = await apiRequest(`${API_URL}/orders/history?date=${date}`);
+      if (!res.ok) throw new Error("Failed to fetch history");
   
       const data = await res.json();
       setSalesHistory(data.orders || []);
     } catch (err) {
       console.error("Sales history fetch failed:", err);
       setSalesHistory([]);
+    } finally {
+      // Add a slight delay so the user sees the transition
+      setTimeout(() => setIsHistoryLoading(false), 300);
     }
-  };
+  }, [activeTab]); // Removed API_URL from deps if it's a constant to be safer
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
@@ -235,10 +240,10 @@ export default function RestaurantVendorUI({
   }, [userRole, activeTab]);
 
   useEffect(() => {
-    if (!["admin", "manager"].includes(userRole) && activeTab === "dashboard") {
+    if (activeTab === "dashboard" && ["admin", "manager"].includes(userRole)) {
       fetchSalesHistory(reportDate);
     }
-  }, [activeTab, reportDate]);
+  }, [activeTab, reportDate, userRole]);
 
   // --- HANDLERS ---
 
@@ -708,6 +713,8 @@ export default function RestaurantVendorUI({
       history={salesHistory}
       reportDate={reportDate}
       setReportDate={setReportDate}
+      fetchSalesHistory={fetchSalesHistory} // This triggers the API
+      isHistoryLoading={isHistoryLoading}
       isDarkMode={isDarkMode}
     />
   </div>
