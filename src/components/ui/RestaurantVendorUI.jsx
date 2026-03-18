@@ -120,7 +120,7 @@ export default function RestaurantVendorUI({
   const [activeUpiData, setActiveUpiData] = useState(null);
 
   const hasFetched = useRef(false);
-  
+  const [editingUser, setEditingUser] = useState(null);
 
   // --- API ---
   const refreshProducts = async () => {
@@ -325,9 +325,28 @@ export default function RestaurantVendorUI({
     setNewUser({ username: "", email: "", password: "", role: "cashier" });
     refreshUsers();
   };
-
+  const handleAdminUpdateUser = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await apiRequest(`${API_URL}/staff/${editingUser.id}`, {
+        method: "PUT",
+        body: JSON.stringify(editingUser),
+      });
+  
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Update failed");
+  
+      // Refresh the list and close the edit state
+      await refreshUsers();
+      setEditingUser(null);
+      alert("Staff details updated successfully!");
+    } catch (err) {
+      // This catches the detail string from backend instead of [object Object]
+      alert(err.message);
+    }
+  };
   const handleAdminDeleteUser = async (id) => {
-    if (!confirm("Delete User?")) return;
+    if (!confirm("Are you sure you want to delete this staff member?")) return;
   
     try {
       const res = await apiRequest(`${API_URL}/staff/${id}`, {
@@ -337,8 +356,8 @@ export default function RestaurantVendorUI({
       const data = await res.json().catch(() => ({}));
   
       if (!res.ok) {
-        console.error("Delete failed:", res.status, data);
-        alert(data.detail || "Delete failed");
+        // ✅ Now alerts the actual error string
+        alert(data.detail || "Failed to delete staff member");
         return;
       }
   
@@ -402,12 +421,14 @@ export default function RestaurantVendorUI({
     Math.max(0, cartSubtotal - discount) + taxAmount
   );
 
-  const availableTokens = useMemo(() => {
-    const used = orders.map((o) => String(o.token));
-    return Array.from({ length: 6 }, (_, i) => String(i + 1)).filter(
-      (t) => !used.includes(t)
-    );
-  }, [orders]);
+  // Find this line in RestaurantVendorUI.jsx (around line 325)
+const availableTokens = useMemo(() => {
+  const used = orders.map((o) => String(o.token));
+  // ✅ Change length from 6 to 8
+  return Array.from({ length: 8 }, (_, i) => String(i + 1)).filter(
+    (t) => !used.includes(t)
+  );
+}, [orders]);
 
   // Only auto-switch if the CURRENT selected token is actually in use (invalid)
   // or if no token is selected at all.
@@ -610,7 +631,7 @@ export default function RestaurantVendorUI({
               id: "users",
               icon: User,
               label: "Staff",
-              roles: ["admin"],
+              roles: ["admin","manager"],
             },
             {
               id: "inventory",
@@ -866,39 +887,39 @@ export default function RestaurantVendorUI({
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {usersList.map((u) => (
-                  <div
-                    key={u.id}
-                    className={`p-5 rounded-lg border flex justify-between items-center group transition-colors ${COMMON_STYLES.card(
-                      isDarkMode
-                    )} ${theme.border.hover}`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-md ${theme.bg.subtle}`}>
-                        <User size={20} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">
-                          {u.username || u.email.split("@")[0]}
-                        </p>
-                        <p
-                          className={`text-xs font-medium ${theme.text.tertiary}`}
-                        >
-                          {u.role}
-                        </p>
-                        <p className={`text-xs ${theme.text.muted}`}>
-                          {u.email}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleAdminDeleteUser(u.id)}
-                      className={`p-2 rounded-md opacity-0 group-hover:opacity-100 transition-all outline-none ${theme.bg.hover}`}
-                    >
-                      <Trash2 size={16} className={theme.text.secondary} />
-                    </button>
-                  </div>
-                ))}
+              {usersList.map((u) => (
+        <div
+          key={u.id}
+          className={`p-5 rounded-lg border flex justify-between items-center group transition-colors ${COMMON_STYLES.card(isDarkMode)}`}
+        >
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-md ${theme.bg.subtle}`}>
+              <User size={20} />
+            </div>
+            <div>
+              <p className="font-medium text-sm">{u.username}</p>
+              <p className={`text-xs font-medium ${theme.text.tertiary}`}>{u.role}</p>
+              <p className={`text-xs ${theme.text.muted}`}>{u.email}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+            <button
+              onClick={() => setEditingUser(u)}
+              className={`p-2 rounded-md hover:bg-blue-500/10 text-blue-500 transition-colors`}
+            >
+              <Settings size={18} />
+            </button>
+
+            <button
+              onClick={() => handleAdminDeleteUser(u.id)}
+              className={`p-2 rounded-md hover:bg-red-500/10 text-red-500 transition-colors`}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </div>
+      ))}
               </div>
             </div>
           )}
@@ -934,6 +955,12 @@ export default function RestaurantVendorUI({
           onClose={() => setSettingsOpen(false)}
           restaurantId={getRestaurantId()}
         />
+      )}
+      {/* ✅ INSERT THE EDIT MODAL CODE HERE */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+           {/* ... modal content ... */}
+        </div>
       )}
     </div>
   );

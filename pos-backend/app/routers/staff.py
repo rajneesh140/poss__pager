@@ -87,7 +87,6 @@ async def delete_staff(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -100,22 +99,59 @@ async def delete_staff(
             User.restaurant_id == current_user.restaurant_id
         )
     )
-
     staff = result.scalars().first()
 
     if not staff:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Staff not found"
-        )
+        # ✅ Using 'detail' key consistently
+        raise HTTPException(status_code=404, detail="Staff member not found")
 
-    if staff.role == "admin":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete admin user"
-        )
+    if staff.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own admin account")
 
     await db.delete(staff)
     await db.commit()
 
-    return {"message": "Staff deleted successfully"}
+    # ✅ Returning 'detail' instead of 'message' ensures frontend compatibility
+    return {"detail": "Staff deleted successfully"}
+
+# Add this to app/routers/staff.py
+
+@router.put("/{staff_id}")
+async def update_staff(
+    staff_id: int,
+    staff_in: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Security: Only admins can edit staff
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only admin can edit staff"
+        )
+
+    # Fetch the staff member
+    result = await db.execute(
+        select(User).where(
+            User.id == staff_id,
+            User.restaurant_id == current_user.restaurant_id
+        )
+    )
+    staff = result.scalars().first()
+
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff member not found")
+
+    # Update fields dynamically
+    update_data = staff_in.dict(exclude_unset=True)
+    
+    if "password" in update_data:
+        update_data["password"] = hash_password(update_data["password"])
+
+    for field, value in update_data.items():
+        setattr(staff, field, value)
+
+    await db.commit()
+    await db.refresh(staff)
+    return staff
+

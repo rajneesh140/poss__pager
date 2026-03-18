@@ -97,3 +97,11 @@ class RecipeResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        
+# Add this to app/schemas/pos_schemas.py
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[str] = None
+    password: Optional[str] = None # Optional: allows changing passwords
