@@ -33,6 +33,7 @@ services:
 
     networks:
       - traefik-proxy
+        external: true
 
   frontend:
     build:
