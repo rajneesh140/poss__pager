@@ -6,19 +6,15 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: pos_db
-    ports:
-      - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql
 
   backend:
     build: ./pos-backend
     container_name: fastapi_backend
+    restart: always
     depends_on:
       - db
-    ports:
-      - "8000:8000"
-    restart: always
     environment:
       DB_HOST: db
       DB_PORT: 3306
@@ -28,17 +24,39 @@ services:
       JWT_SECRET: supersecret123
     command: sh -c "sleep 15 && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend.rule=Host(`api.zervey.gridsphere.in`)
+      - traefik.http.routers.backend.entrypoints=websecure
+      - traefik.http.routers.backend.tls.certresolver=letsencrypt
+      - traefik.http.services.backend.loadbalancer.server.port=8000
+
+    networks:
+      - traefik-proxy
+
   frontend:
     build:
       context: .
       args:
-        VITE_API_URL: http://187.127.141.155:8000   # 🔥 IMPORTANT
+        VITE_API_URL: https://api.zervey.gridsphere.in   # 🔥 IMPORTANT
     container_name: frontend
-    ports:
-      - "5173:80"
+    restart: always
     depends_on:
       - backend
-    restart: always
+
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.frontend.rule=Host(`zervey.gridsphere.in`)
+      - traefik.http.routers.frontend.entrypoints=websecure
+      - traefik.http.routers.frontend.tls.certresolver=letsencrypt
+      - traefik.http.services.frontend.loadbalancer.server.port=80
+
+    networks:
+      - traefik-proxy
 
 volumes:
   db_data:
+
+networks:
+  traefik-proxy:
+    external: true
