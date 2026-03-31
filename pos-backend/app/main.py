@@ -13,7 +13,8 @@ app = FastAPI(title="POS Backend - FastAPI")
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://187.127.141.155:5173"
+    "http://187.127.141.155:5173",
+    "https://zervey.gridsphere.in"
 ]
 # Same CORS policy as Express app.use(cors())
 app.add_middleware(
@@ -21,7 +22,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://187.127.141.155:5173"
+        "http://187.127.141.155:5173",
+        "https://zervey.gridsphere.in"
     ],
     allow_credentials=True,
     allow_methods=["*"],
